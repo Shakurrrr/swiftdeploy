@@ -1,0 +1,58 @@
+networks:
+  swiftdeploy-net:
+    driver: bridge
+
+volumes:
+  swiftdeploy-logs:
+    driver: local
+
+services:
+
+  swiftdeploy-service:
+    image: swift-deploy-1-node:latest
+    container_name: swiftdeploy-service
+    restart: unless-stopped
+    networks:
+      - swiftdeploy-net
+    environment:
+      MODE: "stable"
+      APP_VERSION: "1.0.0"
+      APP_PORT: "3000"
+    user: "1001:1001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    volumes:
+      - swiftdeploy-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  swiftdeploy-nginx:
+    build:
+      context: /home/shakur/swiftdeploy/nginx
+      dockerfile: Dockerfile
+    image: swiftdeploy-nginx:local
+    container_name: swiftdeploy-nginx
+    restart: unless-stopped
+    networks:
+      - swiftdeploy-net
+    ports:
+      - "8080:8080"
+    volumes:
+      - swiftdeploy-logs:/var/log/nginx
+    depends_on:
+      swiftdeploy-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 15s
+      timeout: 5s
+      retries: 3

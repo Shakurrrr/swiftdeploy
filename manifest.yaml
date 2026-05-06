@@ -2,14 +2,20 @@ services:
   image: swift-deploy-1-node:latest
   port: 3000
   mode: stable
-  version: 1.0.0
+  version: "1.0.0"
   replicas: 1
   restart_policy: unless-stopped
   log_volume: swiftdeploy-logs
+
 nginx:
   image: nginx:latest
   port: 8080
   proxy_timeout: 30
+
+opa:
+  image: openpolicyagent/opa:latest
+  port: 8181
+
 network:
   name: swiftdeploy-net
   driver_type: bridge

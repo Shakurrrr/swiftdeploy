@@ -1,6 +1,8 @@
 networks:
   {{ network.name }}:
     driver: {{ network.driver_type }}
+  swiftdeploy-internal:
+    driver: bridge
 
 volumes:
   {{ services.log_volume }}:
@@ -14,6 +16,7 @@ services:
     restart: {{ services.restart_policy }}
     networks:
       - {{ network.name }}
+      - swiftdeploy-internal
     environment:
       MODE: "{{ services.mode }}"
       APP_VERSION: "{{ services.version }}"
@@ -37,7 +40,7 @@ services:
 
   swiftdeploy-nginx:
     build:
-      context: /home/shakur/swiftdeploy/nginx
+      context: NGINX_CONTEXT_PATH
       dockerfile: Dockerfile
     image: swiftdeploy-nginx:local
     container_name: swiftdeploy-nginx
@@ -55,4 +58,30 @@ services:
       test: ["CMD", "nginx", "-t"]
       interval: 15s
       timeout: 5s
+      retries: 3
+
+  swiftdeploy-opa:
+    image: {{ opa.image }}
+    container_name: swiftdeploy-opa
+    restart: {{ services.restart_policy }}
+    networks:
+      - swiftdeploy-internal
+    ports:
+      - "127.0.0.1:{{ opa.port }}:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-format=json"
+      - "--watch"
+      - "/policies/infrastructure.rego"
+      - "/policies/canary.rego"
+      - "/policies/data.json"
+    volumes:
+      - OPA_POLICIES_PATH:/policies:ro
+    healthcheck:
+      test: ["CMD", "/opa", "version"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
       retries: 3
